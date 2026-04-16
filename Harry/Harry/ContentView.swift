@@ -15,22 +15,28 @@ struct ContentView: View {
 
     @State private var showNewCourse = false
     @State private var recentRounds: [PlayedRound] = []
+    @State private var manualStrokes: Int? = nil
 
     private var selectedCourse: Course? {
         courses.first(where: { $0.id == selectedCourseId })
     }
 
     private var handicapValue: Double {
-        Double(handicap) ?? 0
+        let normalized = handicap.replacingOccurrences(of: ",", with: ".")
+        return Double(normalized) ?? 0
     }
 
-    private var strokesReceived: Int {
+    private var calculatedStrokes: Int {
         let slope = Double(selectedCourse?.slope ?? 113)
         let courseRating = selectedCourse?.sss ?? 0.0
         let par = Double(selectedCourse?.par ?? 72)
 
         let playingHandicap = handicapValue * slope / 113.0 + (courseRating - par)
         return max(0, Int(round(playingHandicap)))
+    }
+
+    private var strokesReceived: Int {
+        manualStrokes ?? calculatedStrokes
     }
     
     var body: some View {
@@ -56,6 +62,7 @@ struct ContentView: View {
                             showNewCourse = true
                         } else if let course = selectedCourse {
                             holes = course.holes
+                            manualStrokes = nil
                         }
                     }
 
@@ -63,7 +70,6 @@ struct ContentView: View {
                 }
 
                 Section("Handicap") {
-                    
                     HStack {
                         Text("Handicap")
                         Spacer()
@@ -71,6 +77,7 @@ struct ContentView: View {
                             .foregroundColor(.secondary)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .frame(maxWidth: 120, alignment: .trailing)
                     }
 
                     HStack {
@@ -83,7 +90,14 @@ struct ContentView: View {
                     HStack {
                         Text("SSS")
                         Spacer()
-                        Text("\(selectedCourse?.sss ?? 72.0)")
+                        Text(String(format: "%.1f", selectedCourse?.sss ?? 72.0))
+                            .foregroundColor(.secondary)
+                    }
+
+                    HStack {
+                        Text("Par")
+                        Spacer()
+                        Text("\(selectedCourse?.par ?? 72)")
                             .foregroundColor(.secondary)
                     }
                 }
@@ -92,8 +106,31 @@ struct ContentView: View {
                     HStack {
                         Text("Strokes received")
                         Spacer()
-                        Text("\(strokesReceived)")
+
+                        VStack(alignment: .trailing, spacing: 2) {
+                            TextField(
+                                "Strokes",
+                                value: Binding(
+                                    get: { manualStrokes ?? calculatedStrokes },
+                                    set: { manualStrokes = $0 }
+                                ),
+                                format: .number
+                            )
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(maxWidth: 80, alignment: .trailing)
                             .fontWeight(.semibold)
+
+                            Text(manualStrokes == nil ? "Auto" : "Manual")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    if manualStrokes != nil {
+                        Button("Use calculated value") {
+                            manualStrokes = nil
+                        }
                     }
                 }
 
@@ -109,6 +146,7 @@ struct ContentView: View {
                                 handicap: handicapValue,
                                 slope: course.slope,
                                 sss: course.sss,
+                                par: course.par,
                                 strokesReceived: strokesReceived,
                                 holes: holes
                             ) {
@@ -130,7 +168,8 @@ struct ContentView: View {
                                     handicap: handicapValue
                                 )
                             }
-                        }                    } else {
+                        }
+                    } else {
                         Text("Select a course first")
                             .foregroundColor(.secondary)
                     }
@@ -162,6 +201,9 @@ struct ContentView: View {
             }
             .onAppear {
                 reloadData()
+            }
+            .onChange(of: handicap) { _, _ in
+                manualStrokes = nil
             }
         }
     }

@@ -168,6 +168,15 @@ final class SQLiteManager: ObservableObject {
 
             setUserVersion(5)
         }
+        
+        if version < 6 {
+            execute("""
+            ALTER TABLE played_round
+            ADD COLUMN par INTEGER NOT NULL DEFAULT 72;
+            """)
+
+            setUserVersion(4)
+        }
     }
 
     private func userVersion() -> Int {
@@ -316,15 +325,16 @@ final class SQLiteManager: ObservableObject {
         handicap: Double,
         slope: Int,
         sss: Double,
+        par: Int,
         strokesReceived: Int,
         holes: [Hole]
     ) -> Int64? {
         let roundSQL = """
         INSERT INTO played_round (
             player_name, competition_name, course_id, course_name,
-            handicap, slope, sss, strokes_received, played_at, updated_at
+            handicap, slope, sss, par, strokes_received, played_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
 
         var stmt: OpaquePointer?
@@ -342,9 +352,10 @@ final class SQLiteManager: ObservableObject {
         sqlite3_bind_double(stmt, 5, handicap)
         sqlite3_bind_int(stmt, 6, Int32(slope))
         sqlite3_bind_int(stmt, 7, Int32(sss))
-        sqlite3_bind_int(stmt, 8, Int32(strokesReceived))
-        sqlite3_bind_double(stmt, 9, now)
+        sqlite3_bind_int(stmt, 8, Int32(par))
+        sqlite3_bind_int(stmt, 9, Int32(strokesReceived))
         sqlite3_bind_double(stmt, 10, now)
+        sqlite3_bind_double(stmt, 11, now)
 
         guard sqlite3_step(stmt) == SQLITE_DONE else {
             sqlite3_finalize(stmt)
@@ -387,7 +398,7 @@ final class SQLiteManager: ObservableObject {
     func fetchPlayedRounds(limit: Int = 50) -> [PlayedRound] {
         let sql = """
         SELECT id, player_name, competition_name, course_id, course_name,
-               handicap, slope, sss, strokes_received, played_at, updated_at
+               handicap, slope, sss, par, strokes_received, played_at, updated_at
         FROM played_round
         ORDER BY played_at DESC
         LIMIT ?;
@@ -413,8 +424,9 @@ final class SQLiteManager: ObservableObject {
             let handicap = sqlite3_column_double(stmt, 5)
             let slope = Int(sqlite3_column_int(stmt, 6))
             let sss = Double(sqlite3_column_int(stmt, 7))
-            let strokesReceived = Int(sqlite3_column_int(stmt, 8))
-            let playedAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 9))
+            let par = Int(sqlite3_column_int(stmt, 8))
+            let strokesReceived = Int(sqlite3_column_int(stmt, 9))
+            let playedAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 10))
 
             let updatedAtValue = sqlite3_column_type(stmt, 10) == SQLITE_NULL
                 ? sqlite3_column_double(stmt, 9)
@@ -433,6 +445,7 @@ final class SQLiteManager: ObservableObject {
                     handicap: handicap,
                     slope: slope,
                     sss: sss,
+                    par: par,
                     strokesReceived: strokesReceived,
                     playedAt: playedAt,
                     updatedAt: updatedAt,

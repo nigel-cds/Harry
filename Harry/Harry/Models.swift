@@ -26,6 +26,7 @@ struct PlayedRound: Identifiable, Hashable, Codable {
     let handicap: Double
     let slope: Int
     let sss: Double
+    let par: Int
     let strokesReceived: Int
     let playedAt: Date
     var updatedAt: Date
