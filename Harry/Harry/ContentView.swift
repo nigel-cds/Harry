@@ -1,6 +1,10 @@
 import SwiftUI
 
 struct ContentView: View {
+    
+    @State private var createdRoundId: Int64?
+    @State private var goToScorecard = false
+    
     @State private var playerName = ""
     @State private var competitionName = ""
     @State private var handicap = "18.0"
@@ -21,10 +25,14 @@ struct ContentView: View {
     }
 
     private var strokesReceived: Int {
-        let slope = selectedCourse?.slope ?? 113
-        return max(0, Int(round(handicapValue * Double(slope) / 113.0)))
-    }
+        let slope = Double(selectedCourse?.slope ?? 113)
+        let courseRating = selectedCourse?.sss ?? 0.0
+        let par = Double(selectedCourse?.par ?? 72)
 
+        let playingHandicap = handicapValue * slope / 113.0 + (courseRating - par)
+        return max(0, Int(round(playingHandicap)))
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -55,8 +63,15 @@ struct ContentView: View {
                 }
 
                 Section("Handicap") {
-                    TextField("Handicap", text: $handicap)
-                        .keyboardType(.decimalPad)
+                    
+                    HStack {
+                        Text("Handicap")
+                        Spacer()
+                        TextField("Handicap", text: $handicap)
+                            .foregroundColor(.secondary)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                    }
 
                     HStack {
                         Text("Slope")
@@ -68,7 +83,7 @@ struct ContentView: View {
                     HStack {
                         Text("SSS")
                         Spacer()
-                        Text("\(selectedCourse?.sss ?? 72)")
+                        Text("\(selectedCourse?.sss ?? 72.0)")
                             .foregroundColor(.secondary)
                     }
                 }
@@ -84,18 +99,38 @@ struct ContentView: View {
 
                 Section {
                     if let selectedCourse {
-                        NavigationLink("Harry") {
-                            ScorecardView(
+                        Button("Harry") {
+                            let course = selectedCourse
+                            if let roundId = SQLiteManager.shared.insertPlayedRound(
                                 playerName: playerName,
                                 competitionName: competitionName,
-                                course: selectedCourse,
-                                holes: holes,
+                                courseId: course.id,
+                                courseName: course.name,
+                                handicap: handicapValue,
+                                slope: course.slope,
+                                sss: course.sss,
                                 strokesReceived: strokesReceived,
-                                handicap: handicapValue
-                            )
+                                holes: holes
+                            ) {
+                                createdRoundId = roundId
+                                goToScorecard = true
+                            } else {
+                                print("Failed to create round")
+                            }
                         }
-                        .font(.headline)
-                    } else {
+                        .navigationDestination(isPresented: $goToScorecard) {
+                            if let roundId = createdRoundId {
+                                ScorecardView(
+                                    roundId: roundId,
+                                    playerName: playerName,
+                                    competitionName: competitionName,
+                                    course: selectedCourse,
+                                    holes: holes,
+                                    strokesReceived: strokesReceived,
+                                    handicap: handicapValue
+                                )
+                            }
+                        }                    } else {
                         Text("Select a course first")
                             .foregroundColor(.secondary)
                     }

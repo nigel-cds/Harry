@@ -1,6 +1,6 @@
 import Foundation
 
-struct Hole: Identifiable, Hashable {
+struct Hole: Identifiable, Hashable, Codable {
     let id = UUID()
     let number: Int
     var par: Int
@@ -12,11 +12,12 @@ struct Course: Identifiable, Hashable {
     let id: Int64
     var name: String
     var slope: Int
-    var sss: Int
+    var sss: Double
+    var par: Int
     var holes: [Hole]
 }
 
-struct PlayedRound: Identifiable, Hashable {
+struct PlayedRound: Identifiable, Hashable, Codable {
     let id: Int64
     let playerName: String
     let competitionName: String
@@ -24,10 +25,11 @@ struct PlayedRound: Identifiable, Hashable {
     let courseName: String
     let handicap: Double
     let slope: Int
-    let sss: Int
+    let sss: Double
     let strokesReceived: Int
     let playedAt: Date
-    let holes: [Hole]
+    var updatedAt: Date
+    var holes: [Hole]
 }
 
 extension Array where Element == Hole {
