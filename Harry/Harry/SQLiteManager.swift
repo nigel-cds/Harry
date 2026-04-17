@@ -61,7 +61,7 @@ final class SQLiteManager: ObservableObject {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
                 slope INTEGER NOT NULL,
-                sss INTEGER NOT NULL
+                sss REAL NOT NULL
             );
             """)
 
@@ -110,6 +110,73 @@ final class SQLiteManager: ObservableObject {
 
             setUserVersion(2)
         }
+        
+        if version < 3 {
+            execute("""
+            ALTER TABLE played_round
+            ADD COLUMN updated_at REAL;
+            """)
+
+            execute("""
+            UPDATE played_round
+            SET updated_at = played_at
+            WHERE updated_at IS NULL;
+            """)
+
+            setUserVersion(3)
+        }
+        
+        if version < 4 {
+
+            execute("""
+            ALTER TABLE course
+            ADD COLUMN par INTEGER NOT NULL DEFAULT 72;
+            """)
+
+            setUserVersion(4)
+
+        }
+
+        if version < 5 {
+            // 1. Rename old table
+            execute("""
+            ALTER TABLE course RENAME TO course_old;
+            """)
+
+            // 2. Create new table with correct schema
+            execute("""
+            CREATE TABLE course (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                slope INTEGER NOT NULL,
+                sss REAL NOT NULL,
+                par INTEGER NOT NULL
+            );
+            """)
+
+            // 3. Copy data (INTEGER → REAL is automatic in SQLite)
+            execute("""
+            INSERT INTO course (id, name, slope, sss, par)
+            SELECT id, name, slope, CAST(sss AS REAL), par
+            FROM course_old;
+            """)
+
+            // 4. Drop old table
+            execute("""
+            DROP TABLE course_old;
+            """)
+
+            setUserVersion(5)
+        }
+        
+        if version < 6 {
+            execute("""
+            ALTER TABLE played_round
+            ADD COLUMN par INTEGER NOT NULL DEFAULT 72;
+            """)
+
+            setUserVersion(4)
+        }
     }
 
     private func userVersion() -> Int {
@@ -142,7 +209,7 @@ final class SQLiteManager: ObservableObject {
     }
 
     func fetchCourses() -> [Course] {
-        let sql = "SELECT id, name, slope, sss FROM course ORDER BY name;"
+        let sql = "SELECT id, name, slope, sss, par FROM course ORDER BY name;"
         var stmt: OpaquePointer?
         var courses: [Course] = []
 
@@ -156,10 +223,11 @@ final class SQLiteManager: ObservableObject {
             let id = sqlite3_column_int64(stmt, 0)
             let name = String(cString: sqlite3_column_text(stmt, 1))
             let slope = Int(sqlite3_column_int(stmt, 2))
-            let sss = Int(sqlite3_column_int(stmt, 3))
+            let sss = Double(sqlite3_column_double(stmt, 3))
+            let par = Int(sqlite3_column_int(stmt, 4))
             let holes = fetchHoles(for: id)
 
-            courses.append(Course(id: id, name: name, slope: slope, sss: sss, holes: holes))
+            courses.append(Course(id: id, name: name, slope: slope, sss: sss, par: par, holes: holes))
         }
 
         return courses
@@ -195,24 +263,28 @@ final class SQLiteManager: ObservableObject {
     }
 
     @discardableResult
-    func insertCourse(name: String, slope: Int, sss: Int, holes: [Hole]) -> Bool {
-        let insertSQL = "INSERT INTO course (name, slope, sss) VALUES (?, ?, ?);"
-        var stmt: OpaquePointer?
+    func insertCourse(name: String, slope: Int, sss: Double, par: Int, holes: [Hole]) -> Bool {
+        let insertSQL = "INSERT INTO course (name, slope, sss, par) VALUES (?, ?, ?, ?);"
 
-        guard sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK else {
+        var statement: OpaquePointer?
+
+        guard sqlite3_prepare_v2(db, insertSQL, -1, &statement, nil) == SQLITE_OK else {
+            print("Prepare failed:", String(cString: sqlite3_errmsg(db)))
             return false
         }
 
-        sqlite3_bind_text(stmt, 1, (name as NSString).utf8String, -1, nil)
-        sqlite3_bind_int(stmt, 2, Int32(slope))
-        sqlite3_bind_int(stmt, 3, Int32(sss))
+        defer { sqlite3_finalize(statement) }
 
-        guard sqlite3_step(stmt) == SQLITE_DONE else {
-            sqlite3_finalize(stmt)
+        sqlite3_bind_text(statement, 1, (name as NSString).utf8String, -1, nil)
+        sqlite3_bind_int(statement, 2, Int32(slope))
+        sqlite3_bind_double(statement, 3, sss)
+        sqlite3_bind_int(statement, 4, Int32(par))
+        
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            print("Insert failed:", String(cString: sqlite3_errmsg(db)))
             return false
         }
 
-        sqlite3_finalize(stmt)
         let courseId = sqlite3_last_insert_rowid(db)
 
         let holeSQL = """
@@ -222,9 +294,13 @@ final class SQLiteManager: ObservableObject {
 
         for hole in holes {
             var holeStmt: OpaquePointer?
+
             guard sqlite3_prepare_v2(db, holeSQL, -1, &holeStmt, nil) == SQLITE_OK else {
+                print("Hole prepare failed:", String(cString: sqlite3_errmsg(db)))
                 return false
             }
+
+            defer { sqlite3_finalize(holeStmt) }
 
             sqlite3_bind_int64(holeStmt, 1, courseId)
             sqlite3_bind_int(holeStmt, 2, Int32(hole.number))
@@ -232,16 +308,14 @@ final class SQLiteManager: ObservableObject {
             sqlite3_bind_int(holeStmt, 4, Int32(hole.handicap))
 
             guard sqlite3_step(holeStmt) == SQLITE_DONE else {
-                sqlite3_finalize(holeStmt)
+                print("Hole insert failed:", String(cString: sqlite3_errmsg(db)))
                 return false
             }
-
-            sqlite3_finalize(holeStmt)
         }
 
         return true
     }
-
+    
     @discardableResult
     func insertPlayedRound(
         playerName: String,
@@ -250,24 +324,27 @@ final class SQLiteManager: ObservableObject {
         courseName: String,
         handicap: Double,
         slope: Int,
-        sss: Int,
+        sss: Double,
+        par: Int,
         strokesReceived: Int,
         holes: [Hole]
-    ) -> Bool {
+    ) -> Int64? {
         let roundSQL = """
         INSERT INTO played_round (
             player_name, competition_name, course_id, course_name,
-            handicap, slope, sss, strokes_received, played_at
+            handicap, slope, sss, par, strokes_received, played_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
 
         var stmt: OpaquePointer?
 
         guard sqlite3_prepare_v2(db, roundSQL, -1, &stmt, nil) == SQLITE_OK else {
-            return false
+            return nil
         }
 
+        let now = Date().timeIntervalSince1970
+        
         sqlite3_bind_text(stmt, 1, (playerName as NSString).utf8String, -1, nil)
         sqlite3_bind_text(stmt, 2, (competitionName as NSString).utf8String, -1, nil)
         sqlite3_bind_int64(stmt, 3, courseId)
@@ -275,12 +352,14 @@ final class SQLiteManager: ObservableObject {
         sqlite3_bind_double(stmt, 5, handicap)
         sqlite3_bind_int(stmt, 6, Int32(slope))
         sqlite3_bind_int(stmt, 7, Int32(sss))
-        sqlite3_bind_int(stmt, 8, Int32(strokesReceived))
-        sqlite3_bind_double(stmt, 9, Date().timeIntervalSince1970)
+        sqlite3_bind_int(stmt, 8, Int32(par))
+        sqlite3_bind_int(stmt, 9, Int32(strokesReceived))
+        sqlite3_bind_double(stmt, 10, now)
+        sqlite3_bind_double(stmt, 11, now)
 
         guard sqlite3_step(stmt) == SQLITE_DONE else {
             sqlite3_finalize(stmt)
-            return false
+            return nil
         }
 
         sqlite3_finalize(stmt)
@@ -296,7 +375,7 @@ final class SQLiteManager: ObservableObject {
         for hole in holes {
             var holeStmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, holeSQL, -1, &holeStmt, nil) == SQLITE_OK else {
-                return false
+                return nil
             }
 
             sqlite3_bind_int64(holeStmt, 1, roundId)
@@ -307,19 +386,19 @@ final class SQLiteManager: ObservableObject {
 
             guard sqlite3_step(holeStmt) == SQLITE_DONE else {
                 sqlite3_finalize(holeStmt)
-                return false
+                return nil
             }
 
             sqlite3_finalize(holeStmt)
         }
 
-        return true
+        return roundId
     }
 
     func fetchPlayedRounds(limit: Int = 50) -> [PlayedRound] {
         let sql = """
         SELECT id, player_name, competition_name, course_id, course_name,
-               handicap, slope, sss, strokes_received, played_at
+               handicap, slope, sss, par, strokes_received, played_at, updated_at
         FROM played_round
         ORDER BY played_at DESC
         LIMIT ?;
@@ -344,9 +423,16 @@ final class SQLiteManager: ObservableObject {
             let courseName = String(cString: sqlite3_column_text(stmt, 4))
             let handicap = sqlite3_column_double(stmt, 5)
             let slope = Int(sqlite3_column_int(stmt, 6))
-            let sss = Int(sqlite3_column_int(stmt, 7))
-            let strokesReceived = Int(sqlite3_column_int(stmt, 8))
-            let playedAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 9))
+            let sss = Double(sqlite3_column_int(stmt, 7))
+            let par = Int(sqlite3_column_int(stmt, 8))
+            let strokesReceived = Int(sqlite3_column_int(stmt, 9))
+            let playedAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 10))
+
+            let updatedAtValue = sqlite3_column_type(stmt, 10) == SQLITE_NULL
+                ? sqlite3_column_double(stmt, 9)
+                : sqlite3_column_double(stmt, 10)
+
+            let updatedAt = Date(timeIntervalSince1970: updatedAtValue)
             let holes = fetchPlayedRoundHoles(roundId: id)
 
             rounds.append(
@@ -359,8 +445,10 @@ final class SQLiteManager: ObservableObject {
                     handicap: handicap,
                     slope: slope,
                     sss: sss,
+                    par: par,
                     strokesReceived: strokesReceived,
                     playedAt: playedAt,
+                    updatedAt: updatedAt,
                     holes: holes
                 )
             )
@@ -368,7 +456,7 @@ final class SQLiteManager: ObservableObject {
 
         return rounds
     }
-
+    
     private func fetchPlayedRoundHoles(roundId: Int64) -> [Hole] {
         let sql = """
         SELECT hole_number, par, handicap, strokes
@@ -401,9 +489,58 @@ final class SQLiteManager: ObservableObject {
 
         return holes
     }
+    
+    @discardableResult
+    func updatePlayedRoundHole(roundId: Int64, holeNumber: Int, strokes: Int) -> Bool {
+        let holeSQL = """
+        UPDATE played_round_hole
+        SET strokes = ?
+        WHERE round_id = ? AND hole_number = ?;
+        """
+
+        var holeStmt: OpaquePointer?
+
+        guard sqlite3_prepare_v2(db, holeSQL, -1, &holeStmt, nil) == SQLITE_OK else {
+            return false
+        }
+
+        sqlite3_bind_int(holeStmt, 1, Int32(strokes))
+        sqlite3_bind_int64(holeStmt, 2, roundId)
+        sqlite3_bind_int(holeStmt, 3, Int32(holeNumber))
+
+        guard sqlite3_step(holeStmt) == SQLITE_DONE else {
+            sqlite3_finalize(holeStmt)
+            return false
+        }
+
+        sqlite3_finalize(holeStmt)
+
+        let roundSQL = """
+        UPDATE played_round
+        SET updated_at = ?
+        WHERE id = ?;
+        """
+
+        var roundStmt: OpaquePointer?
+
+        guard sqlite3_prepare_v2(db, roundSQL, -1, &roundStmt, nil) == SQLITE_OK else {
+            return false
+        }
+
+        sqlite3_bind_double(roundStmt, 1, Date().timeIntervalSince1970)
+        sqlite3_bind_int64(roundStmt, 2, roundId)
+
+        guard sqlite3_step(roundStmt) == SQLITE_DONE else {
+            sqlite3_finalize(roundStmt)
+            return false
+        }
+
+        sqlite3_finalize(roundStmt)
+        return true
+    }
 
     private func seedIfNeeded() {
         guard fetchCourses().isEmpty else { return }
-        _ = insertCourse(name: "Default Course", slope: 113, sss: 72, holes: [Hole].defaultHoles())
+        _ = insertCourse(name: "Default Course", slope: 113, sss: 72, par: 72, holes: [Hole].defaultHoles())
     }
 }

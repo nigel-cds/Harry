@@ -3,6 +3,7 @@ import SwiftUI
 struct ScorecardView: View {
     @Environment(\.dismiss) private var dismiss
 
+    let roundId: Int64
     let playerName: String
     let competitionName: String
     let course: Course
@@ -55,6 +56,7 @@ struct ScorecardView: View {
                             Button {
                                 if holes[currentHoleIndex].strokes > 1 {
                                     holes[currentHoleIndex].strokes -= 1
+                                    persistHoleChange(at: currentHoleIndex)
                                 }
                             } label: {
                                 Text("−")
@@ -71,6 +73,7 @@ struct ScorecardView: View {
                             Button {
                                 if holes[currentHoleIndex].strokes < 15 {
                                     holes[currentHoleIndex].strokes += 1
+                                    persistHoleChange(at: currentHoleIndex)
                                 }
                             } label: {
                                 Text("+")
@@ -91,13 +94,13 @@ struct ScorecardView: View {
                     }
 
                     HStack {
-                        Text("+/- Par")
+                        Text("Over / under Par")
                         Spacer()
                         Text(formatted(total: plusMinusPar(for: hole)))
                     }
 
                     HStack {
-                        Text("+/- My Par")
+                        Text("Over / under My Par")
                         Spacer()
                         Text(formatted(total: plusMinusMyPar(for: hole)))
                     }
@@ -108,11 +111,6 @@ struct ScorecardView: View {
                         Text("\(stablefordPoints(for: hole))")
                     }
 
-                    HStack {
-                        Text("Stableford Total")
-                        Spacer()
-                        Text("\(totalStablefordPoints())")
-                    }
                 }
                 .font(.headline)
                 .padding()
@@ -126,23 +124,29 @@ struct ScorecardView: View {
                 Text("Totals (to hole \(hole.number))")
                     .font(.headline)
 
-                HStack {
-                    Text("Over/Under Par")
-                    Spacer()
-                    Text(formatted(total: totalPlusMinusPar()))
-                }
+                VStack(spacing: 12) {
+                    HStack {
+                        Text("Over / under Par")
+                        Spacer()
+                        Text(formatted(total: totalPlusMinusPar()))
+                    }
 
-                HStack {
-                    Text("Over/Under My Par")
-                    Spacer()
-                    Text(formatted(total: totalPlusMinusMyPar()))
-                }
+                    HStack {
+                        Text("Over / under My Par")
+                        Spacer()
+                        Text(formatted(total: totalPlusMinusMyPar()))
+                    }
 
-                HStack {
-                    Text("Stableford Total")
-                    Spacer()
-                    Text("\(totalStablefordPoints())")
+                    HStack {
+                        Text("Stableford Total")
+                        Spacer()
+                        Text("\(totalStablefordPoints())")
+                    }
                 }
+                .font(.headline)
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
             }
 
             Spacer()
@@ -158,8 +162,8 @@ struct ScorecardView: View {
                 Spacer()
 
                 if currentHoleIndex == holes.count - 1 {
-                    Button("Finish & Save") {
-                        saveRound()
+                    Button("Finish") {
+                        finishRound()
                     }
                 } else {
                     Button("Next") {
@@ -226,30 +230,29 @@ struct ScorecardView: View {
         return "0"
     }
 
-    private func saveRound() {
-        let ok = SQLiteManager.shared.insertPlayedRound(
-            playerName: playerName,
-            competitionName: competitionName,
-            courseId: course.id,
-            courseName: course.name,
-            handicap: handicap,
-            slope: course.slope,
-            sss: course.sss,
-            strokesReceived: strokesReceived,
-            holes: holes
+    private func persistHoleChange(at index: Int) {
+        let hole = holes[index]
+
+        let ok = SQLiteManager.shared.updatePlayedRoundHole(
+            roundId: roundId,
+            holeNumber: hole.number,
+            strokes: hole.strokes
         )
 
-        if ok {
-            showSavedAlert = true
-        } else {
+        if !ok {
             showSaveError = true
         }
+    }
+
+    private func finishRound() {
+        showSavedAlert = true
     }
 }
 
 #Preview {
     NavigationStack {
         ScorecardView(
+            roundId: 1,
             playerName: "Harry",
             competitionName: "",
             course: Course(
@@ -257,6 +260,7 @@ struct ScorecardView: View {
                 name: "Default Course",
                 slope: 113,
                 sss: 72,
+                par: 72,
                 holes: [Hole].defaultHoles()
             ),
             holes: [Hole].defaultHoles(),
