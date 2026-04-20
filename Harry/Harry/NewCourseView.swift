@@ -29,7 +29,7 @@ struct NewCourseView: View {
                     .keyboardType(.numberPad)
                 
                 TextField("SSS", text: $sss)
-                    .keyboardType(.numberPad)
+                    .keyboardType(.numbersAndPunctuation)
                 
                 TextField("Par", text: $par)
                     .keyboardType(.numberPad)
