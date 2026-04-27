@@ -19,7 +19,7 @@ enum RoundCalculations {
     }
 
     static func plusMinusMyPar(for hole: Hole, strokesReceived: Int) -> Int {
-        hole.strokes - hole.par - strokesGiven(for: hole, strokesReceived: strokesReceived)
+        hole.strokes - hole.par - hole.strokesGiven
     }
 
     static func totalPlusMinusPar(holes: [Hole]) -> Int {
@@ -27,7 +27,7 @@ enum RoundCalculations {
     }
 
     static func stablefordPoints(for hole: Hole, strokesReceived: Int) -> Int {
-        let netRelativeToPar = hole.strokes - hole.par - strokesGiven(for: hole, strokesReceived: strokesReceived)
+        let netRelativeToPar = hole.strokes - hole.par - hole.strokesGiven
         return max(0, 2 - netRelativeToPar)
     }
 

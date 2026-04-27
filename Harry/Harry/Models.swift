@@ -6,6 +6,7 @@ struct Hole: Identifiable, Hashable, Codable {
     var par: Int
     var handicap: Int
     var strokes: Int
+    var strokesGiven: Int
 }
 
 struct Course: Identifiable, Hashable {
@@ -40,7 +41,8 @@ extension Array where Element == Hole {
                 number: holeNumber,
                 par: holeNumber <= 2 ? 5 : 4,
                 handicap: holeNumber,
-                strokes: holeNumber <= 2 ? 5 : 4
+                strokes: holeNumber <= 2 ? 5 : 4,
+                strokesGiven: 0
             )
         }
     }

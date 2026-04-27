@@ -175,7 +175,30 @@ final class SQLiteManager: ObservableObject {
             ADD COLUMN par INTEGER NOT NULL DEFAULT 72;
             """)
 
-            setUserVersion(4)
+            setUserVersion(6)
+        }
+        
+        if version < 7 {
+            execute("""
+            ALTER TABLE played_round_hole
+            ADD COLUMN strokes_given INTEGER NOT NULL DEFAULT 0;
+            """)
+
+            execute("""
+            UPDATE played_round_hole
+            SET strokes_given = (
+                SELECT
+                    (pr.strokes_received / 18) +
+                    CASE
+                        WHEN played_round_hole.handicap <= (pr.strokes_received % 18) THEN 1
+                        ELSE 0
+                    END
+                FROM played_round pr
+                WHERE pr.id = played_round_hole.round_id
+            );
+            """)
+
+            setUserVersion(7)
         }
     }
 
@@ -256,7 +279,15 @@ final class SQLiteManager: ObservableObject {
             let number = Int(sqlite3_column_int(stmt, 0))
             let par = Int(sqlite3_column_int(stmt, 1))
             let handicap = Int(sqlite3_column_int(stmt, 2))
-            holes.append(Hole(number: number, par: par, handicap: handicap, strokes: par))
+            holes.append(
+                Hole(
+                    number: number,
+                    par: par,
+                    handicap: handicap,
+                    strokes: par,
+                    strokesGiven: 0
+                )
+            )
         }
 
         return holes
@@ -344,14 +375,14 @@ final class SQLiteManager: ObservableObject {
         }
 
         let now = Date().timeIntervalSince1970
-        
+
         sqlite3_bind_text(stmt, 1, (playerName as NSString).utf8String, -1, nil)
         sqlite3_bind_text(stmt, 2, (competitionName as NSString).utf8String, -1, nil)
         sqlite3_bind_int64(stmt, 3, courseId)
         sqlite3_bind_text(stmt, 4, (courseName as NSString).utf8String, -1, nil)
         sqlite3_bind_double(stmt, 5, handicap)
         sqlite3_bind_int(stmt, 6, Int32(slope))
-        sqlite3_bind_int(stmt, 7, Int32(sss))
+        sqlite3_bind_double(stmt, 7, sss)
         sqlite3_bind_int(stmt, 8, Int32(par))
         sqlite3_bind_int(stmt, 9, Int32(strokesReceived))
         sqlite3_bind_double(stmt, 10, now)
@@ -367,9 +398,9 @@ final class SQLiteManager: ObservableObject {
 
         let holeSQL = """
         INSERT INTO played_round_hole (
-            round_id, hole_number, par, handicap, strokes
+            round_id, hole_number, par, handicap, strokes, strokes_given
         )
-        VALUES (?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?);
         """
 
         for hole in holes {
@@ -378,11 +409,17 @@ final class SQLiteManager: ObservableObject {
                 return nil
             }
 
+            let strokesGiven = calculateStrokesGiven(
+                strokesReceived: strokesReceived,
+                holeHandicap: hole.handicap
+            )
+
             sqlite3_bind_int64(holeStmt, 1, roundId)
             sqlite3_bind_int(holeStmt, 2, Int32(hole.number))
             sqlite3_bind_int(holeStmt, 3, Int32(hole.par))
             sqlite3_bind_int(holeStmt, 4, Int32(hole.handicap))
             sqlite3_bind_int(holeStmt, 5, Int32(hole.strokes))
+            sqlite3_bind_int(holeStmt, 6, Int32(strokesGiven))
 
             guard sqlite3_step(holeStmt) == SQLITE_DONE else {
                 sqlite3_finalize(holeStmt)
@@ -394,7 +431,7 @@ final class SQLiteManager: ObservableObject {
 
         return roundId
     }
-
+    
     func fetchPlayedRounds(limit: Int = 50) -> [PlayedRound] {
         let sql = """
         SELECT id, player_name, competition_name, course_id, course_name,
@@ -457,9 +494,9 @@ final class SQLiteManager: ObservableObject {
         return rounds
     }
     
-    private func fetchPlayedRoundHoles(roundId: Int64) -> [Hole] {
+    func fetchPlayedRoundHoles(roundId: Int64) -> [Hole] {
         let sql = """
-        SELECT hole_number, par, handicap, strokes
+        SELECT hole_number, par, handicap, strokes, strokes_given
         FROM played_round_hole
         WHERE round_id = ?
         ORDER BY hole_number;
@@ -482,7 +519,8 @@ final class SQLiteManager: ObservableObject {
                     number: Int(sqlite3_column_int(stmt, 0)),
                     par: Int(sqlite3_column_int(stmt, 1)),
                     handicap: Int(sqlite3_column_int(stmt, 2)),
-                    strokes: Int(sqlite3_column_int(stmt, 3))
+                    strokes: Int(sqlite3_column_int(stmt, 3)),
+                    strokesGiven: Int(sqlite3_column_int(stmt, 4))
                 )
             )
         }
@@ -543,4 +581,11 @@ final class SQLiteManager: ObservableObject {
         guard fetchCourses().isEmpty else { return }
         _ = insertCourse(name: "Default Course", slope: 113, sss: 72, par: 72, holes: [Hole].defaultHoles())
     }
+    
+    private func calculateStrokesGiven(strokesReceived: Int, holeHandicap: Int) -> Int {
+        let base = strokesReceived / 18
+        let remainder = strokesReceived % 18
+        return base + (holeHandicap <= remainder ? 1 : 0)
+    }
 }
+
