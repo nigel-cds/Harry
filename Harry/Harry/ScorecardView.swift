@@ -37,15 +37,21 @@ struct ScorecardView: View {
 
                 VStack(spacing: 12) {
                     HStack {
+                        Text("H'cap")
+                        Spacer()
+                        Text("\(hole.handicap)")
+                    }
+
+                    HStack {
                         Text("Par")
                         Spacer()
                         Text("\(hole.par)")
                     }
 
                     HStack {
-                        Text("H'cap")
+                        Text("Strokes Given")
                         Spacer()
-                        Text("\(hole.handicap)")
+                        Text(hole.strokesGiven, format: .number)
                     }
 
                     HStack {
@@ -88,12 +94,6 @@ struct ScorecardView: View {
                     Divider()
 
                     HStack {
-                        Text("Strokes Given")
-                        Spacer()
-                        Text("\(strokesGiven(for: hole))")
-                    }
-
-                    HStack {
                         Text("Over / under Par")
                         Spacer()
                         Text(formatted(total: plusMinusPar(for: hole)))
@@ -121,26 +121,116 @@ struct ScorecardView: View {
             Divider()
 
             VStack(spacing: 8) {
-                Text("Totals (to hole \(hole.number))")
+                Text("Totals")
                     .font(.headline)
 
                 VStack(spacing: 12) {
-                    HStack {
-                        Text("Over / under Par")
-                        Spacer()
-                        Text(formatted(total: totalPlusMinusPar()))
-                    }
+                    if currentHoleIndex >= 9 {
+                        let front9 = Array(holes.prefix(9))
+                        let backSoFar = Array(holes[9...currentHoleIndex])
+                        let fullSoFar = Array(holes.prefix(currentHoleIndex + 1))
 
-                    HStack {
-                        Text("Over / under My Par")
-                        Spacer()
-                        Text(formatted(total: totalPlusMinusMyPar()))
-                    }
+                        HStack {
+                            Text("")
+                                .frame(width: 160, alignment: .leading)
 
-                    HStack {
-                        Text("Stableford Total")
-                        Spacer()
-                        Text("\(totalStablefordPoints())")
+                            Spacer()
+
+                            Text("1-9")
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text("10-\(hole.number)")
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text("Total")
+                                .frame(width: 55, alignment: .trailing)
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                        HStack {
+                            Text("Over / under Par")
+                                .frame(width: 160, alignment: .leading)
+
+                            Spacer()
+
+                            Text(formatted(total: totalPlusMinusPar(for: front9)))
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text(formatted(total: totalPlusMinusPar(for: backSoFar)))
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text(formatted(total: totalPlusMinusPar(for: fullSoFar)))
+                                .frame(width: 55, alignment: .trailing)
+                        }
+
+                        HStack {
+                            Text("Over / under My Par")
+                                .frame(width: 160, alignment: .leading)
+
+                            Spacer()
+
+                            Text(formatted(total: totalPlusMinusMyPar(for: front9)))
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text(formatted(total: totalPlusMinusMyPar(for: backSoFar)))
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text(formatted(total: totalPlusMinusMyPar(for: fullSoFar)))
+                                .frame(width: 55, alignment: .trailing)
+                        }
+
+                        HStack {
+                            Text("Stableford total")
+                                .frame(width: 160, alignment: .leading)
+
+                            Spacer()
+
+                            Text("\(totalStablefordPoints(for: front9))")
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text("\(totalStablefordPoints(for: backSoFar))")
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text("\(totalStablefordPoints(for: fullSoFar))")
+                                .frame(width: 55, alignment: .trailing)
+                        }
+                    } else {
+                        HStack {
+                            Text("")
+                                .frame(width: 160, alignment: .leading)
+
+                            Spacer()
+
+                            Text("")
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text("")
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text("1-\(hole.number)")
+                                .frame(width: 55, alignment: .trailing)
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                        HStack {
+                            Text("Over / under Par")
+                            Spacer()
+                            Text(formatted(total: totalPlusMinusPar()))
+                        }
+
+                        HStack {
+                            Text("Over / under My Par")
+                            Spacer()
+                            Text(formatted(total: totalPlusMinusMyPar()))
+                        }
+
+                        HStack {
+                            Text("Stableford Total")
+                            Spacer()
+                            Text("\(totalStablefordPoints())")
+                        }
                     }
                 }
                 .font(.headline)
@@ -148,7 +238,6 @@ struct ScorecardView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
             }
-
             Spacer()
 
             HStack {
@@ -188,6 +277,30 @@ struct ScorecardView: View {
         } message: {
             Text("Please try again.")
         }
+        .onAppear {
+            holes = SQLiteManager.shared.fetchPlayedRoundHoles(roundId: roundId)
+        }
+    }
+
+    func front9Holes() -> [Hole] {
+        Array(holes.prefix(9))
+    }
+
+    func back9HolesToCurrent() -> [Hole] {
+        guard currentHoleIndex >= 9 else { return [] }
+        return Array(holes[9...currentHoleIndex])
+    }
+
+    func totalPlusMinusPar(for holesSubset: [Hole]) -> Int {
+        holesSubset.reduce(0) { $0 + ($1.strokes - $1.par) }
+    }
+
+    func totalPlusMinusMyPar(for holesSubset: [Hole]) -> Int {
+        holesSubset.reduce(0) { $0 + ($1.strokes - $1.par - $1.strokesGiven) }
+    }
+
+    func totalStablefordPoints(for holesSubset: [Hole]) -> Int {
+        holesSubset.reduce(0) { $0 + stablefordPoints(for: $1) }
     }
 
     func strokesGiven(for hole: Hole) -> Int {
@@ -201,7 +314,7 @@ struct ScorecardView: View {
     }
 
     func plusMinusMyPar(for hole: Hole) -> Int {
-        hole.strokes - hole.par - strokesGiven(for: hole)
+        hole.strokes - hole.par - hole.strokesGiven
     }
 
     func totalPlusMinusPar() -> Int {
@@ -211,11 +324,11 @@ struct ScorecardView: View {
 
     func totalPlusMinusMyPar() -> Int {
         holes.prefix(currentHoleIndex + 1)
-            .reduce(0) { $0 + ($1.strokes - $1.par - strokesGiven(for: $1)) }
+            .reduce(0) { $0 + ($1.strokes - $1.par - $1.strokesGiven) }
     }
 
     func stablefordPoints(for hole: Hole) -> Int {
-        let netRelativeToPar = hole.strokes - hole.par - strokesGiven(for: hole)
+        let netRelativeToPar = hole.strokes - hole.par - hole.strokesGiven
         return max(0, 2 - netRelativeToPar)
     }
 
