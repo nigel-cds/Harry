@@ -20,12 +20,13 @@ struct ScorecardView: View {
 
         VStack(spacing: 16) {
             VStack(spacing: 4) {
-                Text("Strokes Received: \(strokesReceived)")
-                    .font(.headline)
 
-                Text("Handicap: \(handicap, specifier: "%.1f")   Slope: \(course.slope)   SSS: \(course.sss)")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                HStack(spacing: 0) {
+                    Text(course.name).bold()
+                    Text("   Par: \(course.par)   MyPar: \(course.par + strokesReceived)(\(strokesReceived))")
+                }
+                .font(.subheadline)
+                .foregroundColor(.secondary)
             }
 
             Divider()
