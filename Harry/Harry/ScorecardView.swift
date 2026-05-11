@@ -1,7 +1,15 @@
 import SwiftUI
 
+enum TotalsMode: String, CaseIterable, Identifiable {
+    case coursePar = "Course Par"
+    case myHandicap = "My Handicap"
+
+    var id: String { rawValue }
+}
+
 struct ScorecardView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var totalsMode: TotalsMode = .coursePar
 
     let roundId: Int64
     let playerName: String
@@ -123,6 +131,14 @@ struct ScorecardView: View {
 
             VStack(spacing: 8) {
 
+                Picker("Totals mode", selection: $totalsMode) {
+                    ForEach(TotalsMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                
                 HStack(alignment: .firstTextBaseline) {
 
                     Text("Totals")
@@ -161,37 +177,21 @@ struct ScorecardView: View {
                         let fullSoFar = Array(holes.prefix(currentHoleIndex + 1))
 
                         HStack {
-                            Text("Over / under Par")
+                            Text(totalsMode == .coursePar ? "Over / under Par" : "Over / under Handicap")
                                 .frame(width: 160, alignment: .leading)
 
                             Spacer()
 
-                            Text(formatted(total: totalPlusMinusPar(for: front9)))
+                            Text(formatted(total: totalPlusMinus(for: front9)))
                                 .frame(width: 55, alignment: .trailing)
 
-                            Text(formatted(total: totalPlusMinusPar(for: backSoFar)))
+                            Text(formatted(total: totalPlusMinus(for: backSoFar)))
                                 .frame(width: 55, alignment: .trailing)
 
-                            Text(formatted(total: totalPlusMinusPar(for: fullSoFar)))
-                                .frame(width: 55, alignment: .trailing)
-                        }
-
-                        HStack {
-                            Text("Over / under My Par")
-                                .frame(width: 160, alignment: .leading)
-
-                            Spacer()
-
-                            Text(formatted(total: totalPlusMinusMyPar(for: front9)))
-                                .frame(width: 55, alignment: .trailing)
-
-                            Text(formatted(total: totalPlusMinusMyPar(for: backSoFar)))
-                                .frame(width: 55, alignment: .trailing)
-
-                            Text(formatted(total: totalPlusMinusMyPar(for: fullSoFar)))
+                            Text(formatted(total: totalPlusMinus(for: fullSoFar)))
                                 .frame(width: 55, alignment: .trailing)
                         }
-
+                        
                         HStack {
                             Text("Stableford total")
                                 .frame(width: 160, alignment: .leading)
@@ -274,17 +274,11 @@ struct ScorecardView: View {
                     } else {
 
                         HStack {
-                            Text("Over / under Par")
+                            Text(totalsMode == .coursePar ? "Over / under Par" : "Over / under Handicap")
                             Spacer()
-                            Text(formatted(total: totalPlusMinusPar()))
+                            Text(formatted(total: totalPlusMinus()))
                         }
-
-                        HStack {
-                            Text("Over / under My Par")
-                            Spacer()
-                            Text(formatted(total: totalPlusMinusMyPar()))
-                        }
-
+                        
                         HStack {
                             Text("Stableford Total")
                             Spacer()
@@ -363,6 +357,19 @@ struct ScorecardView: View {
         .onAppear {
             holes = SQLiteManager.shared.fetchPlayedRoundHoles(roundId: roundId)
         }
+    }
+
+    func totalPlusMinus(for holesSubset: [Hole]) -> Int {
+        switch totalsMode {
+        case .coursePar:
+            return totalPlusMinusPar(for: holesSubset)
+        case .myHandicap:
+            return totalPlusMinusMyPar(for: holesSubset)
+        }
+    }
+
+    func totalPlusMinus() -> Int {
+        totalPlusMinus(for: Array(holes.prefix(currentHoleIndex + 1)))
     }
 
     func birdiePlusTotal(for holesSubset: [Hole]) -> Int {
