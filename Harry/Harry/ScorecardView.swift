@@ -122,32 +122,43 @@ struct ScorecardView: View {
             Divider()
 
             VStack(spacing: 8) {
-                Text("Totals")
-                    .font(.headline)
 
+                HStack(alignment: .firstTextBaseline) {
+
+                    Text("Totals")
+                        .font(.headline)
+                        .frame(width: 160, alignment: .leading)
+
+                    Spacer()
+
+                    if currentHoleIndex >= 9 {
+
+                        Text("1-9")
+                            .frame(width: 55, alignment: .trailing)
+
+                        Text("10-\(hole.number)")
+                            .frame(width: 55, alignment: .trailing)
+
+                        Text("Total")
+                            .frame(width: 55, alignment: .trailing)
+
+                    } else {
+
+                        Text("1-\(hole.number)")
+                            .frame(width: 55, alignment: .trailing)
+                    }
+                }
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .padding(.leading, 16)
+                .padding(.trailing, 16)
+                
                 VStack(spacing: 12) {
+
                     if currentHoleIndex >= 9 {
                         let front9 = Array(holes.prefix(9))
                         let backSoFar = Array(holes[9...currentHoleIndex])
                         let fullSoFar = Array(holes.prefix(currentHoleIndex + 1))
-
-                        HStack {
-                            Text("")
-                                .frame(width: 160, alignment: .leading)
-
-                            Spacer()
-
-                            Text("1-9")
-                                .frame(width: 55, alignment: .trailing)
-
-                            Text("10-\(hole.number)")
-                                .frame(width: 55, alignment: .trailing)
-
-                            Text("Total")
-                                .frame(width: 55, alignment: .trailing)
-                        }
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
 
                         HStack {
                             Text("Over / under Par")
@@ -196,24 +207,71 @@ struct ScorecardView: View {
                             Text("\(totalStablefordPoints(for: fullSoFar))")
                                 .frame(width: 55, alignment: .trailing)
                         }
-                    } else {
+
                         HStack {
-                            Text("")
+                            Text("Birdie+")
                                 .frame(width: 160, alignment: .leading)
 
                             Spacer()
 
-                            Text("")
+                            Text("\(birdiePlusTotal(for: front9))")
                                 .frame(width: 55, alignment: .trailing)
 
-                            Text("")
+                            Text("\(birdiePlusTotal(for: backSoFar))")
                                 .frame(width: 55, alignment: .trailing)
 
-                            Text("1-\(hole.number)")
+                            Text("\(birdiePlusTotal(for: fullSoFar))")
                                 .frame(width: 55, alignment: .trailing)
                         }
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+
+                        HStack {
+                            Text("Par")
+                                .frame(width: 160, alignment: .leading)
+
+                            Spacer()
+
+                            Text("\(parTotal(for: front9))")
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text("\(parTotal(for: backSoFar))")
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text("\(parTotal(for: fullSoFar))")
+                                .frame(width: 55, alignment: .trailing)
+                        }
+
+                        HStack {
+                            Text("Bogey")
+                                .frame(width: 160, alignment: .leading)
+
+                            Spacer()
+
+                            Text("\(bogeyTotal(for: front9))")
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text("\(bogeyTotal(for: backSoFar))")
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text("\(bogeyTotal(for: fullSoFar))")
+                                .frame(width: 55, alignment: .trailing)
+                        }
+
+                        HStack {
+                            Text("Boogey")
+                                .frame(width: 160, alignment: .leading)
+
+                            Spacer()
+
+                            Text("\(doubleBogeyPlusTotal(for: front9))")
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text("\(doubleBogeyPlusTotal(for: backSoFar))")
+                                .frame(width: 55, alignment: .trailing)
+
+                            Text("\(doubleBogeyPlusTotal(for: fullSoFar))")
+                                .frame(width: 55, alignment: .trailing)
+                        }
+                    } else {
 
                         HStack {
                             Text("Over / under Par")
@@ -231,6 +289,30 @@ struct ScorecardView: View {
                             Text("Stableford Total")
                             Spacer()
                             Text("\(totalStablefordPoints())")
+                        }
+
+                        HStack {
+                            Text("Birdie+")
+                            Spacer()
+                            Text("\(birdiePlusTotal())")
+                        }
+
+                        HStack {
+                            Text("Par")
+                            Spacer()
+                            Text("\(parTotal())")
+                        }
+
+                        HStack {
+                            Text("Bogey")
+                            Spacer()
+                            Text("\(bogeyTotal())")
+                        }
+
+                        HStack {
+                            Text("Boogey")
+                            Spacer()
+                            Text("\(doubleBogeyPlusTotal())")
                         }
                     }
                 }
@@ -283,6 +365,38 @@ struct ScorecardView: View {
         }
     }
 
+    func birdiePlusTotal(for holesSubset: [Hole]) -> Int {
+        holesSubset.filter { $0.strokes < $0.par }.count
+    }
+
+    func parTotal(for holesSubset: [Hole]) -> Int {
+        holesSubset.filter { $0.strokes == $0.par }.count
+    }
+
+    func bogeyTotal(for holesSubset: [Hole]) -> Int {
+        holesSubset.filter { $0.strokes == $0.par + 1 }.count
+    }
+
+    func doubleBogeyPlusTotal(for holesSubset: [Hole]) -> Int {
+        holesSubset.filter { $0.strokes > $0.par + 1 }.count
+    }
+    
+    func birdiePlusTotal() -> Int {
+        birdiePlusTotal(for: Array(holes.prefix(currentHoleIndex + 1)))
+    }
+
+    func parTotal() -> Int {
+        parTotal(for: Array(holes.prefix(currentHoleIndex + 1)))
+    }
+
+    func bogeyTotal() -> Int {
+        bogeyTotal(for: Array(holes.prefix(currentHoleIndex + 1)))
+    }
+
+    func doubleBogeyPlusTotal() -> Int {
+        doubleBogeyPlusTotal(for: Array(holes.prefix(currentHoleIndex + 1)))
+    }
+    
     func front9Holes() -> [Hole] {
         Array(holes.prefix(9))
     }
