@@ -5,37 +5,41 @@ struct ContentView: View {
     @State private var createdRoundId: Int64?
     @State private var goToScorecard = false
     @State private var selectedRecentRound: PlayedRound?
-
+    
     @State private var playerName = ""
     @State private var competitionName = ""
     @State private var handicap = "18.0"
-
+    
     @State private var courses: [Course] = []
     @State private var selectedCourseId: Int64?
     @State private var holes = [Hole].defaultHoles()
-
+    
     @State private var showNewCourse = false
     @State private var recentRounds: [PlayedRound] = []
     @State private var manualStrokes: Int? = nil
     
-    private var selectedCourse: Course? {
-        courses.first(where: { $0.id == selectedCourseId })
+    @State private var showEditCourse = false
+    @State private var courseToEdit: Course?
+    
+    var selectedCourse: Course? {
+        guard let selectedCourseId else { return nil }
+        return courses.first { $0.id == selectedCourseId }
     }
-
+    
     private var handicapValue: Double {
         let normalized = handicap.replacingOccurrences(of: ",", with: ".")
         return Double(normalized) ?? 0
     }
-
+    
     private var calculatedStrokes: Int {
         let slope = Double(selectedCourse?.slope ?? 113)
         let courseRating = selectedCourse?.sss ?? 0.0
         let par = Double(selectedCourse?.par ?? 72)
-
+        
         let playingHandicap = handicapValue * slope / 113.0 + (courseRating - par)
         return max(0, Int(round(playingHandicap)))
     }
-
+    
     private var strokesReceived: Int {
         manualStrokes ?? calculatedStrokes
     }
@@ -64,6 +68,15 @@ struct ContentView: View {
                         } else if let course = selectedCourse {
                             holes = course.holes
                             manualStrokes = nil
+                        }
+                    }
+                    
+                    if selectedCourseId != nil {
+                        Button("Edit Course") {
+                            if let selectedCourse {
+                                courseToEdit = selectedCourse
+                                showEditCourse = true
+                            }
                         }
                     }
                     
@@ -211,7 +224,14 @@ struct ContentView: View {
             .navigationTitle("Harry Setup")
             .sheet(isPresented: $showNewCourse) {
                 NavigationStack {
-                    NewCourseView {
+                    NewCourseView(courseToEdit: nil) {
+                        reloadData()
+                    }
+                }
+            }
+            .sheet(isPresented: $showEditCourse) {
+                NavigationStack {
+                    NewCourseView(courseToEdit: courseToEdit) {
                         reloadData()
                     }
                 }
@@ -224,7 +244,7 @@ struct ContentView: View {
             }
         }
     }
-
+    
     @ViewBuilder
     func gridCell(
         _ text: String,
@@ -242,12 +262,11 @@ struct ContentView: View {
     private func reloadData() {
         courses = SQLiteManager.shared.fetchCourses()
         recentRounds = SQLiteManager.shared.fetchPlayedRounds()
-
-        if selectedCourseId == nil, let first = courses.first {
-            selectedCourseId = first.id
-            holes = first.holes
-        } else if let selectedCourse {
+        
+        if let selectedCourse {
             holes = selectedCourse.holes
+        } else {
+            holes = []
         }
     }
 }

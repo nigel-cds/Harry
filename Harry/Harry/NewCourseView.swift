@@ -10,14 +10,17 @@ import SwiftUI
 struct NewCourseView: View {
     @Environment(\.dismiss) private var dismiss
     
+    let courseToEdit: Course?
     let onSaved: () -> Void
     
-    @State private var errorMessage = ""
     @State private var courseName = ""
-    @State private var slope = "123"
-    @State private var sss = "70.3"
+    @State private var slope = ""
+    @State private var sss = ""
     @State private var par = ""
     @State private var holes = [Hole].defaultHoles()
+
+    // Need to confirm whether these are still required now that course is editable
+    @State private var errorMessage = ""
     @State private var showError = false
     
     var body: some View {
@@ -35,39 +38,78 @@ struct NewCourseView: View {
                     .keyboardType(.numberPad)
             }
             
-            Section("Hole Details") {
+            Section("Holes Par H'cap") {
+
+                // Header row
+                HStack {
+                    Text("Hole")
+                        .frame(width: 70, alignment: .leading)
+
+                    Text("Par")
+                        .frame(width: 80, alignment: .trailing)
+
+                    Text("H'cap")
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+                // Data rows
                 ForEach(holes.indices, id: \.self) { index in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Hole \(holes[index].number)")
+                    HStack {
+
+                        // Hole number
+                        Text("\(holes[index].number)")
                             .font(.headline)
-                        
-                        HStack {
-                            Text("Par")
-                            Spacer()
+                            .frame(width: 70, alignment: .leading)
+
+                        // Par
+                        HStack(spacing: 4) {
                             Stepper("", value: $holes[index].par, in: 3...6)
                                 .labelsHidden()
+
                             Text("\(holes[index].par)")
+                                .frame(width: 30, alignment: .trailing)
                         }
-                        
-                        HStack {
-                            Text("H'cap")
-                            Spacer()
+                        .frame(width: 80, alignment: .trailing)
+
+                        Spacer()
+
+                        // Handicap
+                        HStack(spacing: 4) {
                             Stepper("", value: $holes[index].handicap, in: 1...18)
                                 .labelsHidden()
+
                             Text("\(holes[index].handicap)")
+                                .frame(width: 30, alignment: .trailing)
                         }
+                        .frame(width: 80, alignment: .trailing)
                     }
                     .padding(.vertical, 4)
                 }
             }
-            
+
             Section {
-                Button("Save Course") {
+                Button(courseToEdit == nil ? "Save Course" : "Update Course") {
                     saveCourse()
                 }
             }
         }
-        .navigationTitle("New Course")
+        .navigationTitle(courseToEdit == nil ? "New Course" : "Edit Course")
+        .onAppear {
+            if let course = courseToEdit {
+                courseName = course.name
+                slope = "\(course.slope)"
+                sss = "\(course.sss)"
+                par = "\(course.par)"
+                holes = course.holes
+            } else {
+                slope = "123"
+                sss = "70.3"
+                par = ""
+                holes = [Hole].defaultHoles()
+            }
+        }
         .alert("Could not save course", isPresented: $showError) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -103,13 +145,34 @@ struct NewCourseView: View {
             return
         }
         
-        let ok = SQLiteManager.shared.insertCourse(
-            name: trimmedName,
-            slope: slopeValue,
-            sss: sssValue,
-            par: parValue,
-            holes: holes
-        )
+        let holesParTotal = holes.reduce(0) { $0 + $1.par }
+
+        guard parValue == holesParTotal else {
+            errorMessage = "Course par must equal the total par of all holes. Course par is \(parValue), but holes total \(holesParTotal)."
+            showError = true
+            return
+        }
+
+        let ok: Bool
+
+        if let course = courseToEdit {
+            ok = SQLiteManager.shared.updateCourse(
+                id: course.id,
+                name: trimmedName,
+                slope: slopeValue,
+                sss: sssValue,
+                par: parValue,
+                holes: holes
+            )
+        } else {
+            ok = SQLiteManager.shared.insertCourse(
+                name: trimmedName,
+                slope: slopeValue,
+                sss: sssValue,
+                par: parValue,
+                holes: holes
+            )
+        }
         
         if ok {
             onSaved()

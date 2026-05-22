@@ -294,6 +294,85 @@ final class SQLiteManager: ObservableObject {
     }
 
     @discardableResult
+    func updateCourse(
+        id: Int64,
+        name: String,
+        slope: Int,
+        sss: Double,
+        par: Int,
+        holes: [Hole]
+    ) -> Bool {
+        let updateSQL = "UPDATE course SET name = ?, slope = ?, sss = ?, par = ? WHERE id = ? ;"
+        
+        var statementU: OpaquePointer?
+        
+        guard sqlite3_prepare_v2(db, updateSQL, -1, &statementU, nil) == SQLITE_OK else {
+            print("Prepare failed:", String(cString: sqlite3_errmsg(db)))
+            return false
+        }
+
+        defer { sqlite3_finalize(statementU) }
+
+        sqlite3_bind_text(statementU, 1, (name as NSString).utf8String, -1, nil)
+        sqlite3_bind_int(statementU, 2, Int32(slope))
+        sqlite3_bind_double(statementU, 3, sss)
+        sqlite3_bind_int(statementU, 4, Int32(par))
+        sqlite3_bind_int64(statementU, 5, Int64(id))
+
+        guard sqlite3_step(statementU) == SQLITE_DONE else {
+            print("Update failed:", String(cString: sqlite3_errmsg(db)))
+            return false
+        }
+
+        // delete existing holes for course id
+        let deleteSQL = "DELETE course_hole WHERE course_id = ?;"
+        
+        var statementD: OpaquePointer?
+        
+        guard sqlite3_prepare_v2(db, deleteSQL, -1, &statementD, nil) == SQLITE_OK else {
+            print("Prepare failed:", String(cString: sqlite3_errmsg(db)))
+            return false
+        }
+
+        defer { sqlite3_finalize(statementD) }
+
+        sqlite3_bind_int64(statementD, 1, Int64(id))
+
+        guard sqlite3_step(statementD) == SQLITE_DONE else {
+            print("Delete failed:", String(cString: sqlite3_errmsg(db)))
+            return false
+        }
+
+        // insert updated holes
+        let holeSQL = """
+        INSERT INTO course_hole (course_id, hole_number, par, handicap)
+        VALUES (?, ?, ?, ?);
+        """
+
+        for hole in holes {
+            var holeStmt: OpaquePointer?
+
+            guard sqlite3_prepare_v2(db, holeSQL, -1, &holeStmt, nil) == SQLITE_OK else {
+                print("Hole prepare failed:", String(cString: sqlite3_errmsg(db)))
+                return false
+            }
+
+            defer { sqlite3_finalize(holeStmt) }
+
+            sqlite3_bind_int64(holeStmt, 1, id)
+            sqlite3_bind_int(holeStmt, 2, Int32(hole.number))
+            sqlite3_bind_int(holeStmt, 3, Int32(hole.par))
+            sqlite3_bind_int(holeStmt, 4, Int32(hole.handicap))
+
+            guard sqlite3_step(holeStmt) == SQLITE_DONE else {
+                print("Hole insert failed:", String(cString: sqlite3_errmsg(db)))
+                return false
+            }
+        }
+        return true
+    }
+
+    @discardableResult
     func insertCourse(name: String, slope: Int, sss: Double, par: Int, holes: [Hole]) -> Bool {
         let insertSQL = "INSERT INTO course (name, slope, sss, par) VALUES (?, ?, ?, ?);"
 
@@ -526,6 +605,19 @@ final class SQLiteManager: ObservableObject {
         }
 
         return holes
+    }
+    
+    func updatePlayedRoundHolePlayedStatus(
+        roundId: Int64,
+        holeNumber: Int,
+        isPlayed: Bool
+    ) {
+        execute("""
+        UPDATE played_round_hole
+        SET is_played = \(isPlayed ? 1 : 0)
+        WHERE round_id = \(roundId)
+          AND hole_number = \(holeNumber);
+        """)
     }
     
     @discardableResult
