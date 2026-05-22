@@ -147,22 +147,15 @@ struct ScorecardView: View {
 
                     Spacer()
 
-                    if currentHoleIndex >= 9 {
+                    Text("Front")
+                        .frame(width: 55, alignment: .trailing)
 
-                        Text("1-9")
-                            .frame(width: 55, alignment: .trailing)
+                    Text("Back")
+                        .frame(width: 55, alignment: .trailing)
 
-                        Text("10-\(hole.number)")
-                            .frame(width: 55, alignment: .trailing)
+                    Text("Total")
+                        .frame(width: 55, alignment: .trailing)
 
-                        Text("Total")
-                            .frame(width: 55, alignment: .trailing)
-
-                    } else {
-
-                        Text("1-\(hole.number)")
-                            .frame(width: 55, alignment: .trailing)
-                    }
                 }
                 .font(.subheadline)
                 .foregroundColor(.secondary)
@@ -171,143 +164,104 @@ struct ScorecardView: View {
                 
                 VStack(spacing: 12) {
 
-                    if currentHoleIndex >= 9 {
-                        let front9 = Array(holes.prefix(9))
-                        let backSoFar = Array(holes[9...currentHoleIndex])
-                        let fullSoFar = Array(holes.prefix(currentHoleIndex + 1))
+                    let front9 = Array(holes.prefix(9))
+                    let back9 = Array(holes[9...17])
+                    let full = Array(holes.prefix(18))
 
-                        HStack {
-                            Text(totalsMode == .coursePar ? "Over / under Par" : "Over / under Handicap")
-                                .frame(width: 160, alignment: .leading)
+                    HStack {
+                        Text("Stableford total")
+                            .frame(width: 160, alignment: .leading)
 
-                            Spacer()
+                        Spacer()
 
-                            Text(formatted(total: totalPlusMinus(for: front9)))
-                                .frame(width: 55, alignment: .trailing)
+                        Text("\(totalStablefordPoints(for: front9))")
+                            .frame(width: 55, alignment: .trailing)
 
-                            Text(formatted(total: totalPlusMinus(for: backSoFar)))
-                                .frame(width: 55, alignment: .trailing)
+                        Text("\(totalStablefordPoints(for: back9))")
+                            .frame(width: 55, alignment: .trailing)
 
-                            Text(formatted(total: totalPlusMinus(for: fullSoFar)))
-                                .frame(width: 55, alignment: .trailing)
-                        }
-                        
-                        HStack {
-                            Text("Stableford total")
-                                .frame(width: 160, alignment: .leading)
+                        Text("\(totalStablefordPoints(for: full))")
+                            .frame(width: 55, alignment: .trailing)
+                    }
 
-                            Spacer()
+                    HStack {
+                        Text(totalsMode == .coursePar ? "Over / under Par" : "Over / under Handicap")
+                            .frame(width: 160, alignment: .leading)
 
-                            Text("\(totalStablefordPoints(for: front9))")
-                                .frame(width: 55, alignment: .trailing)
+                        Spacer()
 
-                            Text("\(totalStablefordPoints(for: backSoFar))")
-                                .frame(width: 55, alignment: .trailing)
+                        Text(formatted(total: totalPlusMinus(for: front9)))
+                            .frame(width: 55, alignment: .trailing)
 
-                            Text("\(totalStablefordPoints(for: fullSoFar))")
-                                .frame(width: 55, alignment: .trailing)
-                        }
+                        Text(formatted(total: totalPlusMinus(for: back9)))
+                            .frame(width: 55, alignment: .trailing)
 
-                        HStack {
-                            Text("Birdie+")
-                                .frame(width: 160, alignment: .leading)
+                        Text(formatted(total: totalPlusMinus(for: full)))
+                            .frame(width: 55, alignment: .trailing)
+                    }
+                    
+                    HStack {
+                        Text("Birdie/+")
+                            .frame(width: 160, alignment: .leading)
 
-                            Spacer()
+                        Spacer()
 
-                            Text("\(birdiePlusTotal(for: front9))")
-                                .frame(width: 55, alignment: .trailing)
+                        Text("\(totalBirdyOrBetter(for: front9))")
+                            .frame(width: 55, alignment: .trailing)
 
-                            Text("\(birdiePlusTotal(for: backSoFar))")
-                                .frame(width: 55, alignment: .trailing)
+                        Text("\(totalBirdyOrBetter(for: back9))")
+                            .frame(width: 55, alignment: .trailing)
 
-                            Text("\(birdiePlusTotal(for: fullSoFar))")
-                                .frame(width: 55, alignment: .trailing)
-                        }
+                        Text("\(totalBirdyOrBetter(for: full))")
+                            .frame(width: 55, alignment: .trailing)
+                    }
 
-                        HStack {
-                            Text("Par")
-                                .frame(width: 160, alignment: .leading)
+                    HStack {
+                        Text("Par")
+                            .frame(width: 160, alignment: .leading)
 
-                            Spacer()
+                        Spacer()
 
-                            Text("\(parTotal(for: front9))")
-                                .frame(width: 55, alignment: .trailing)
+                        Text("\(totalPars(for: front9))")
+                            .frame(width: 55, alignment: .trailing)
 
-                            Text("\(parTotal(for: backSoFar))")
-                                .frame(width: 55, alignment: .trailing)
+                        Text("\(totalPars(for: back9))")
+                            .frame(width: 55, alignment: .trailing)
 
-                            Text("\(parTotal(for: fullSoFar))")
-                                .frame(width: 55, alignment: .trailing)
-                        }
+                        Text("\(totalPars(for: full))")
+                            .frame(width: 55, alignment: .trailing)
+                    }
 
-                        HStack {
-                            Text("Bogey")
-                                .frame(width: 160, alignment: .leading)
+                    HStack {
+                        Text("Bogey")
+                            .frame(width: 160, alignment: .leading)
 
-                            Spacer()
+                        Spacer()
 
-                            Text("\(bogeyTotal(for: front9))")
-                                .frame(width: 55, alignment: .trailing)
+                        Text("\(totalBogeys(for: front9))")
+                            .frame(width: 55, alignment: .trailing)
 
-                            Text("\(bogeyTotal(for: backSoFar))")
-                                .frame(width: 55, alignment: .trailing)
+                        Text("\(totalBogeys(for: back9))")
+                            .frame(width: 55, alignment: .trailing)
 
-                            Text("\(bogeyTotal(for: fullSoFar))")
-                                .frame(width: 55, alignment: .trailing)
-                        }
+                        Text("\(totalBogeys(for: full))")
+                            .frame(width: 55, alignment: .trailing)
+                    }
 
-                        HStack {
-                            Text("Boogey")
-                                .frame(width: 160, alignment: .leading)
+                    HStack {
+                        Text("Boogey")
+                            .frame(width: 160, alignment: .leading)
 
-                            Spacer()
+                        Spacer()
 
-                            Text("\(doubleBogeyPlusTotal(for: front9))")
-                                .frame(width: 55, alignment: .trailing)
+                        Text("\(totalBogeysPlus(for: front9))")
+                            .frame(width: 55, alignment: .trailing)
 
-                            Text("\(doubleBogeyPlusTotal(for: backSoFar))")
-                                .frame(width: 55, alignment: .trailing)
+                        Text("\(totalBogeysPlus(for: back9))")
+                            .frame(width: 55, alignment: .trailing)
 
-                            Text("\(doubleBogeyPlusTotal(for: fullSoFar))")
-                                .frame(width: 55, alignment: .trailing)
-                        }
-                    } else {
-
-                        HStack {
-                            Text(totalsMode == .coursePar ? "Over / under Par" : "Over / under Handicap")
-                            Spacer()
-                            Text(formatted(total: totalPlusMinus()))
-                        }
-                        
-                        HStack {
-                            Text("Stableford Total")
-                            Spacer()
-                            Text("\(totalStablefordPoints())")
-                        }
-
-                        HStack {
-                            Text("Birdie+")
-                            Spacer()
-                            Text("\(birdiePlusTotal())")
-                        }
-
-                        HStack {
-                            Text("Par")
-                            Spacer()
-                            Text("\(parTotal())")
-                        }
-
-                        HStack {
-                            Text("Bogey")
-                            Spacer()
-                            Text("\(bogeyTotal())")
-                        }
-
-                        HStack {
-                            Text("Boogey")
-                            Spacer()
-                            Text("\(doubleBogeyPlusTotal())")
-                        }
+                        Text("\(totalBogeysPlus(for: full))")
+                            .frame(width: 55, alignment: .trailing)
                     }
                 }
                 .font(.headline)
@@ -359,66 +313,84 @@ struct ScorecardView: View {
         }
     }
 
+    // Calculate total over / under par, using course par or my par
     func totalPlusMinus(for holesSubset: [Hole]) -> Int {
         switch totalsMode {
         case .coursePar:
-            return totalPlusMinusPar(for: holesSubset)
+            return totalPlusMinusCourse(for: holesSubset)
         case .myHandicap:
             return totalPlusMinusMyPar(for: holesSubset)
         }
     }
-
-    func totalPlusMinus() -> Int {
-        totalPlusMinus(for: Array(holes.prefix(currentHoleIndex + 1)))
-    }
-
-    func birdiePlusTotal(for holesSubset: [Hole]) -> Int {
-        holesSubset.filter { $0.strokes < $0.par }.count
-    }
-
-    func parTotal(for holesSubset: [Hole]) -> Int {
-        holesSubset.filter { $0.strokes == $0.par }.count
-    }
-
-    func bogeyTotal(for holesSubset: [Hole]) -> Int {
-        holesSubset.filter { $0.strokes == $0.par + 1 }.count
-    }
-
-    func doubleBogeyPlusTotal(for holesSubset: [Hole]) -> Int {
-        holesSubset.filter { $0.strokes > $0.par + 1 }.count
-    }
-    
-    func birdiePlusTotal() -> Int {
-        birdiePlusTotal(for: Array(holes.prefix(currentHoleIndex + 1)))
-    }
-
-    func parTotal() -> Int {
-        parTotal(for: Array(holes.prefix(currentHoleIndex + 1)))
-    }
-
-    func bogeyTotal() -> Int {
-        bogeyTotal(for: Array(holes.prefix(currentHoleIndex + 1)))
-    }
-
-    func doubleBogeyPlusTotal() -> Int {
-        doubleBogeyPlusTotal(for: Array(holes.prefix(currentHoleIndex + 1)))
-    }
-    
-    func front9Holes() -> [Hole] {
-        Array(holes.prefix(9))
-    }
-
-    func back9HolesToCurrent() -> [Hole] {
-        guard currentHoleIndex >= 9 else { return [] }
-        return Array(holes[9...currentHoleIndex])
-    }
-
-    func totalPlusMinusPar(for holesSubset: [Hole]) -> Int {
+    func totalPlusMinusCourse(for holesSubset: [Hole]) -> Int {
         holesSubset.reduce(0) { $0 + ($1.strokes - $1.par) }
     }
-
     func totalPlusMinusMyPar(for holesSubset: [Hole]) -> Int {
         holesSubset.reduce(0) { $0 + ($1.strokes - $1.par - $1.strokesGiven) }
+    }
+
+    // Calculate Birdie or better, using course par or my par
+    func totalBirdyOrBetter(for holesSubset: [Hole]) -> Int {
+        switch totalsMode {
+        case .coursePar:
+            return totalBirdyOrBetterCourse(for: holesSubset)
+        case .myHandicap:
+            return totalBirdyOrBetterMyPar(for: holesSubset)
+        }
+    }
+    func totalBirdyOrBetterCourse(for holesSubset: [Hole]) -> Int {
+        holesSubset.filter { $0.strokes < $0.par }.count
+    }
+    func totalBirdyOrBetterMyPar(for holesSubset: [Hole]) -> Int {
+        holesSubset.filter { $0.strokes < ($0.par + $0.strokesGiven) }.count
+    }
+
+    // Calculate number of pars, using course par or my par
+    func totalPars(for holesSubset: [Hole]) -> Int {
+        switch totalsMode {
+        case .coursePar:
+            return totalParsCourse(for: holesSubset)
+        case .myHandicap:
+            return totalParsMyPar(for: holesSubset)
+        }
+    }
+    func totalParsCourse(for holesSubset: [Hole]) -> Int {
+        holesSubset.filter { $0.strokes == $0.par }.count
+    }
+    func totalParsMyPar(for holesSubset: [Hole]) -> Int {
+        holesSubset.filter { $0.strokes == ($0.par + $0.strokesGiven) }.count
+    }
+
+    // Calculate number of bogeys, using course par or my par
+    func totalBogeys(for holesSubset: [Hole]) -> Int {
+        switch totalsMode {
+        case .coursePar:
+            return totalBogeysCourse(for: holesSubset)
+        case .myHandicap:
+            return totalBogeysMyPar(for: holesSubset)
+        }
+    }
+    func totalBogeysCourse(for holesSubset: [Hole]) -> Int {
+        holesSubset.filter { $0.strokes == ($0.par + 1)}.count
+    }
+    func totalBogeysMyPar(for holesSubset: [Hole]) -> Int {
+        holesSubset.filter { $0.strokes == ($0.par + $0.strokesGiven + 1) }.count
+    }
+
+    // Calculate number of worse than bogeys, using course par or my par
+    func totalBogeysPlus(for holesSubset: [Hole]) -> Int {
+        switch totalsMode {
+        case .coursePar:
+            return totalBogeysPlusCourse(for: holesSubset)
+        case .myHandicap:
+            return totalBogeysPlusMyPar(for: holesSubset)
+        }
+    }
+    func totalBogeysPlusCourse(for holesSubset: [Hole]) -> Int {
+        holesSubset.filter { $0.strokes > ($0.par + 1)}.count
+    }
+    func totalBogeysPlusMyPar(for holesSubset: [Hole]) -> Int {
+        holesSubset.filter { $0.strokes > ($0.par + $0.strokesGiven + 1) }.count
     }
 
     func totalStablefordPoints(for holesSubset: [Hole]) -> Int {
@@ -437,16 +409,6 @@ struct ScorecardView: View {
 
     func plusMinusMyPar(for hole: Hole) -> Int {
         hole.strokes - hole.par - hole.strokesGiven
-    }
-
-    func totalPlusMinusPar() -> Int {
-        holes.prefix(currentHoleIndex + 1)
-            .reduce(0) { $0 + ($1.strokes - $1.par) }
-    }
-
-    func totalPlusMinusMyPar() -> Int {
-        holes.prefix(currentHoleIndex + 1)
-            .reduce(0) { $0 + ($1.strokes - $1.par - $1.strokesGiven) }
     }
 
     func stablefordPoints(for hole: Hole) -> Int {
