@@ -113,7 +113,7 @@ struct NewCourseView: View {
         .alert("Could not save course", isPresented: $showError) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("Please check the values. The course name must be unique.")
+            Text(errorMessage)
         }
     }
     

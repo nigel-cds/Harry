@@ -1,26 +1,20 @@
 import SwiftUI
+import Foundation
 
 struct RecentRoundRow: View {
+    @State private var totalsMode: TotalsMode = .coursePar
+
     let round: PlayedRound
 
     var body: some View {
-        let overUnder = RoundCalculations.totalPlusMinusPar(holes: round.holes)
-        let stableford = RoundCalculations.totalStablefordPoints(
-            holes: round.holes,
-            strokesReceived: round.strokesReceived
-        )
+        
+        let stableford = RoundCalculations.totalStablefordPoints(for: round.holes)
+        let front9Stableford = RoundCalculations.totalStablefordPoints(for: Array(round.holes.prefix(9)))
+        let back9Stableford = RoundCalculations.totalStablefordPoints(for: Array(round.holes.suffix(9)))
 
-        let front9Stableford = RoundCalculations.totalStablefordPointsFront9(
-            holes: round.holes,
-            strokesReceived: round.strokesReceived
-        )
-        let back9Stableford = RoundCalculations.totalStablefordPointsBack9(
-            holes: round.holes,
-            strokesReceived: round.strokesReceived
-        )
-
-        let front9OverUnder = RoundCalculations.totalPlusMinusParFront9(holes: round.holes)
-        let back9OverUnder = RoundCalculations.totalPlusMinusParBack9(holes: round.holes)
+        let overUnder = RoundCalculations.totalPlusMinus(for: round.holes, totalsMode: totalsMode)
+        let front9OverUnder = RoundCalculations.totalPlusMinus(for: Array(round.holes.prefix(9)), totalsMode: totalsMode)
+        let back9OverUnder = RoundCalculations.totalPlusMinus(for: Array(round.holes.suffix(9)), totalsMode: totalsMode)
 
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -56,7 +50,7 @@ struct RecentRoundRow: View {
                     gridCell("\(round.handicap, default: "%.1f")", width: 32)
                     gridCell("\(round.strokesReceived)", width: 30)
                     gridCell(
-                        "\(RoundCalculations.formatted(overUnder)) (\(RoundCalculations.formatted(front9OverUnder))/\(RoundCalculations.formatted(back9OverUnder)))",
+                        "\(RoundCalculations.formatted(total: overUnder)) (\(RoundCalculations.formatted(total: front9OverUnder))/\(RoundCalculations.formatted(total: back9OverUnder)))",
                         width: 114
                     )
                     gridCell(

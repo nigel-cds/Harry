@@ -7,6 +7,7 @@ struct Hole: Identifiable, Hashable, Codable {
     var handicap: Int
     var strokes: Int
     var strokesGiven: Int
+    var isPlayed: Bool = true
 }
 
 struct Course: Identifiable, Hashable {

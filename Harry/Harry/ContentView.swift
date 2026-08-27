@@ -266,7 +266,7 @@ struct ContentView: View {
         if let selectedCourse {
             holes = selectedCourse.holes
         } else {
-            holes = []
+            holes = [Hole].defaultHoles()
         }
     }
 }

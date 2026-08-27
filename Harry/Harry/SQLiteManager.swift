@@ -54,7 +54,7 @@ final class SQLiteManager: ObservableObject {
 
     private func migrate() {
         let version = userVersion()
-
+        
         if version < 1 {
             execute("""
             CREATE TABLE IF NOT EXISTS course (
@@ -64,7 +64,7 @@ final class SQLiteManager: ObservableObject {
                 sss REAL NOT NULL
             );
             """)
-
+            
             execute("""
             CREATE TABLE IF NOT EXISTS course_hole (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,10 +75,10 @@ final class SQLiteManager: ObservableObject {
                 FOREIGN KEY(course_id) REFERENCES course(id)
             );
             """)
-
+            
             setUserVersion(1)
         }
-
+        
         if version < 2 {
             execute("""
             CREATE TABLE IF NOT EXISTS played_round (
@@ -95,7 +95,7 @@ final class SQLiteManager: ObservableObject {
                 FOREIGN KEY(course_id) REFERENCES course(id)
             );
             """)
-
+            
             execute("""
             CREATE TABLE IF NOT EXISTS played_round_hole (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -107,7 +107,7 @@ final class SQLiteManager: ObservableObject {
                 FOREIGN KEY(round_id) REFERENCES played_round(id)
             );
             """)
-
+            
             setUserVersion(2)
         }
         
@@ -116,33 +116,33 @@ final class SQLiteManager: ObservableObject {
             ALTER TABLE played_round
             ADD COLUMN updated_at REAL;
             """)
-
+            
             execute("""
             UPDATE played_round
             SET updated_at = played_at
             WHERE updated_at IS NULL;
             """)
-
+            
             setUserVersion(3)
         }
         
         if version < 4 {
-
+            
             execute("""
             ALTER TABLE course
             ADD COLUMN par INTEGER NOT NULL DEFAULT 72;
             """)
-
+            
             setUserVersion(4)
-
+            
         }
-
+        
         if version < 5 {
             // 1. Rename old table
             execute("""
             ALTER TABLE course RENAME TO course_old;
             """)
-
+            
             // 2. Create new table with correct schema
             execute("""
             CREATE TABLE course (
@@ -153,19 +153,19 @@ final class SQLiteManager: ObservableObject {
                 par INTEGER NOT NULL
             );
             """)
-
+            
             // 3. Copy data (INTEGER → REAL is automatic in SQLite)
             execute("""
             INSERT INTO course (id, name, slope, sss, par)
             SELECT id, name, slope, CAST(sss AS REAL), par
             FROM course_old;
             """)
-
+            
             // 4. Drop old table
             execute("""
             DROP TABLE course_old;
             """)
-
+            
             setUserVersion(5)
         }
         
@@ -174,7 +174,7 @@ final class SQLiteManager: ObservableObject {
             ALTER TABLE played_round
             ADD COLUMN par INTEGER NOT NULL DEFAULT 72;
             """)
-
+            
             setUserVersion(6)
         }
         
@@ -183,7 +183,7 @@ final class SQLiteManager: ObservableObject {
             ALTER TABLE played_round_hole
             ADD COLUMN strokes_given INTEGER NOT NULL DEFAULT 0;
             """)
-
+            
             execute("""
             UPDATE played_round_hole
             SET strokes_given = (
@@ -197,9 +197,182 @@ final class SQLiteManager: ObservableObject {
                 WHERE pr.id = played_round_hole.round_id
             );
             """)
-
+            
             setUserVersion(7)
         }
+        
+        if version < 9 {
+            execute("""
+            ALTER TABLE played_round_hole
+            ADD COLUMN is_played INTEGER NOT NULL DEFAULT 1;
+            """)
+            
+            setUserVersion(9)
+        }
+        
+        if version < 10 {
+            execute("""
+            ALTER TABLE played_round_hole
+            DROP COLUMN is_played;
+            """)
+            
+            execute("""
+            ALTER TABLE played_round_hole
+            ADD COLUMN is_played INTEGER NOT NULL DEFAULT 0;
+            """)
+            
+            setUserVersion(10)
+        }
+
+        if version < 11 {
+            execute("""
+            UPDATE played_round_hole
+            SET is_played = 1;
+            """)
+            
+            setUserVersion(11)
+        }
+        
+        if version < 12 {
+            
+            execute("""
+            delete from played_round_hole where round_id IN (
+                select id from played_round where course_name not in ('Le Home'));
+            delete from played_round where course_name not in ('Le Home');
+            delete from course_hole where course_id IN (
+                select id from course where name not in ('Le Home'));
+            delete from course where name not in ('Le Home');
+            """)
+
+            execute("""
+            INSERT INTO course
+            (name, slope, sss, par)
+            VALUES('Sancti Petri B', 123, 69.3, 72);
+
+            INSERT INTO course
+            (name, slope, sss, par)
+            VALUES('Golf Campano', 123, 69.3, 72);
+
+            INSERT INTO course
+            (name, slope, sss, par)
+            VALUES('Golf Montenmedio', 132, 71.2, 72);
+
+            INSERT INTO course
+            (name, slope, sss, par)
+            VALUES('Sancti Petri A', 123, 69.3, 72);
+            """)
+            
+            execute("""
+            INSERT INTO course_hole
+            (course_id, hole_number, par, handicap)
+            VALUES
+            (14, 1, 4, 2),
+            (14, 2, 4, 4),
+            (14, 3, 5, 10),
+            (14, 4, 3, 14),
+            (14, 5, 5, 6),
+            (14, 6, 3, 16),
+            (14, 7, 4, 12),
+            (14, 8, 3, 18),
+            (14, 9, 5, 8),
+            (14, 10, 3, 17),
+            (14, 11, 5, 3),
+            (14, 12, 3, 15),
+            (14, 13, 5, 7),
+            (14, 14, 4, 1),
+            (14, 15, 4, 5),
+            (14, 16, 3, 11),
+            (14, 17, 5, 13),
+            (14, 18, 4, 9);
+
+            INSERT INTO course_hole
+            (course_id, hole_number, par, handicap)
+            VALUES
+            (15, 1, 4, 5),
+            (15, 2, 5, 11),
+            (15, 3, 3, 7),
+            (15, 4, 4, 15),
+            (15, 5, 4, 3),
+            (15, 6, 5, 13),
+            (15, 7, 4, 9),
+            (15, 8, 3, 17),
+            (15, 9, 4, 1),
+            (15, 10, 4, 4),
+            (15, 11, 4, 14),
+            (15, 12, 5, 6),
+            (15, 13, 3, 12),
+            (15, 14, 5, 2),
+            (15, 15, 4, 10),
+            (15, 16, 4, 18),
+            (15, 17, 3, 16),
+            (15, 18, 4, 8);
+
+            INSERT INTO course_hole
+            (course_id, hole_number, par, handicap)
+            VALUES
+            (16, 1, 4, 16),
+            (16, 2, 4, 12),
+            (16, 3, 5, 7),
+            (16, 4, 4, 10),
+            (16, 5, 5, 2),
+            (16, 6, 4, 15),
+            (16, 7, 3, 18),
+            (16, 8, 4, 14),
+            (16, 9, 4, 11),
+            (16, 10, 4, 4),
+            (16, 11, 5, 5),
+            (16, 12, 5, 3),
+            (16, 13, 3, 8),
+            (16, 14, 4, 1),
+            (16, 15, 4, 17),
+            (16, 16, 3, 9),
+            (16, 17, 4, 6),
+            (16, 18, 3, 13);
+
+            INSERT INTO course_hole
+            (course_id, hole_number, par, handicap)
+            VALUES
+            (17, 1, 4, 2),
+            (17, 2, 5, 6),
+            (17, 3, 4, 8),
+            (17, 4, 4, 18),
+            (17, 5, 4, 4),
+            (17, 6, 4, 14),
+            (17, 7, 3, 12),
+            (17, 8, 5, 10),
+            (17, 9, 3, 16),
+            (17, 10, 4, 3),
+            (17, 11, 5, 11),
+            (17, 12, 4, 15),
+            (17, 13, 5, 7),
+            (17, 14, 4, 13),
+            (17, 15, 3, 17),
+            (17, 16, 4, 5),
+            (17, 17, 4, 1),
+            (17, 18, 3, 9);
+            """)
+
+            setUserVersion(12)
+        }
+        
+        if version < 13 {
+            
+            execute("""
+                UPDATE course_hole SET course_id = 21 WHERE course_id = 17;
+
+                UPDATE course_hole SET course_id = 20 WHERE course_id = 16;
+
+                UPDATE course_hole SET course_id = 19 WHERE course_id = 15;
+
+                UPDATE course_hole SET course_id = 18 WHERE course_id = 14;
+
+            """)
+
+            setUserVersion(13)
+
+        }
+            
+
     }
 
     private func userVersion() -> Int {
@@ -325,7 +498,7 @@ final class SQLiteManager: ObservableObject {
         }
 
         // delete existing holes for course id
-        let deleteSQL = "DELETE course_hole WHERE course_id = ?;"
+        let deleteSQL = "DELETE from course_hole WHERE course_id = ?;"
         
         var statementD: OpaquePointer?
         
@@ -477,9 +650,9 @@ final class SQLiteManager: ObservableObject {
 
         let holeSQL = """
         INSERT INTO played_round_hole (
-            round_id, hole_number, par, handicap, strokes, strokes_given
+            round_id, hole_number, par, handicap, strokes, strokes_given, is_played
         )
-        VALUES (?, ?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?);
         """
 
         for hole in holes {
@@ -499,6 +672,7 @@ final class SQLiteManager: ObservableObject {
             sqlite3_bind_int(holeStmt, 4, Int32(hole.handicap))
             sqlite3_bind_int(holeStmt, 5, Int32(hole.strokes))
             sqlite3_bind_int(holeStmt, 6, Int32(strokesGiven))
+            sqlite3_bind_int(holeStmt, 7, 0)
 
             guard sqlite3_step(holeStmt) == SQLITE_DONE else {
                 sqlite3_finalize(holeStmt)
@@ -575,7 +749,7 @@ final class SQLiteManager: ObservableObject {
     
     func fetchPlayedRoundHoles(roundId: Int64) -> [Hole] {
         let sql = """
-        SELECT hole_number, par, handicap, strokes, strokes_given
+        SELECT hole_number, par, handicap, strokes, strokes_given, is_played
         FROM played_round_hole
         WHERE round_id = ?
         ORDER BY hole_number;
@@ -599,7 +773,8 @@ final class SQLiteManager: ObservableObject {
                     par: Int(sqlite3_column_int(stmt, 1)),
                     handicap: Int(sqlite3_column_int(stmt, 2)),
                     strokes: Int(sqlite3_column_int(stmt, 3)),
-                    strokesGiven: Int(sqlite3_column_int(stmt, 4))
+                    strokesGiven: Int(sqlite3_column_int(stmt, 4)),
+                    isPlayed: Bool(sqlite3_column_int(stmt, 5) == 1 ? true : false)
                 )
             )
         }
